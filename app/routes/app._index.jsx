@@ -1,240 +1,222 @@
-import { useEffect } from "react";
-import { useFetcher } from "react-router";
+import { useLoaderData, useSearchParams } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import {
+  Page,
+  Card,
+  Button,
+  Text,
+  Pagination,
+  Thumbnail,
+  BlockStack,
+  InlineStack,
+} from "@shopify/polaris";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-
-  return null;
-};
-
-export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
+  const url = new URL(request.url);
+  const cursor = url.searchParams.get("cursor") || null;
+  const direction = url.searchParams.get("direction") || "next";
+  const pageSize = 50;
+
+  let query, variables;
+
+  if (direction === "previous" && cursor) {
+    // Use last with before for backward pagination
+    query = `#graphql
+      query getProducts($last: Int!, $before: String!) {
+        products(last: $last, before: $before) {
+          edges {
+            node {
+              id
+              title
+              handle
+              status
+              totalInventory
+              createdAt
+              featuredImage {
+                url
+                altText
+              }
+              priceRangeV2 {
+                minVariantPrice {
+                  amount
+                  currencyCode
                 }
               }
             }
+            cursor
+          }
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
           }
         }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
-  const product = responseJson.data.productCreate.product;
-  const variantId = product.variants.edges[0].node.id;
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
+      }`;
+    variables = {
+      last: pageSize,
+      before: cursor,
+    };
+  } else {
+    // Use first with after for forward pagination or initial load
+    query = `#graphql
+      query getProducts($first: Int!, $after: String) {
+        products(first: $first, after: $after) {
+          edges {
+            node {
+              id
+              title
+              handle
+              status
+              totalInventory
+              createdAt
+              featuredImage {
+                url
+                altText
+              }
+              priceRangeV2 {
+                minVariantPrice {
+                  amount
+                  currencyCode
+                }
+              }
+            }
+            cursor
+          }
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
         }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-  const variantResponseJson = await variantResponse.json();
+      }`;
+    variables = {
+      first: pageSize,
+      after: cursor || null,
+    };
+  }
 
-  return {
-    product: responseJson.data.productCreate.product,
-    variant: variantResponseJson.data.productVariantsBulkUpdate.productVariants,
-  };
+  const response = await admin.graphql(query, { variables });
+  const responseJson = await response.json();
+  const productsData = responseJson.data?.products || { edges: [], pageInfo: {} };
+  let products = productsData.edges.map((edge) => edge.node);
+  
+  // When using 'before' with 'last', results come in reverse order, so reverse them
+  if (direction === "previous" && cursor) {
+    products = products.reverse();
+  }
+  
+  const pageInfo = productsData.pageInfo;
+
+  return { products, pageInfo };
 };
 
-export default function Index() {
-  const fetcher = useFetcher();
-  const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
 
-  useEffect(() => {
-    if (fetcher.data?.product?.id) {
-      shopify.toast.show("Product created");
+export default function Index() {
+  const shopify = useAppBridge();
+  const { products, pageInfo } = useLoaderData();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const handleNextPage = () => {
+    if (pageInfo.hasNextPage && pageInfo.endCursor) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set("cursor", pageInfo.endCursor);
+      newParams.set("direction", "next");
+      setSearchParams(newParams);
     }
-  }, [fetcher.data?.product?.id, shopify]);
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+  };
+
+  const handlePreviousPage = () => {
+    if (pageInfo.hasPreviousPage) {
+      const newParams = new URLSearchParams(searchParams);
+      if (pageInfo.startCursor) {
+        newParams.set("cursor", pageInfo.startCursor);
+        newParams.set("direction", "previous");
+      } else {
+        // Go back to first page
+        newParams.delete("cursor");
+        newParams.delete("direction");
+      }
+      setSearchParams(newParams);
+    }
+  };
+
+  const hasNext = pageInfo.hasNextPage;
+  const hasPrevious = pageInfo.hasPreviousPage;
 
   return (
-    <s-page heading="Shopify app template">
-      <s-button slot="primary-action" onClick={generateProduct}>
-        Generate a product
-      </s-button>
-
-      <s-section heading="Congrats on creating a new Shopify app 🎉">
-        <s-paragraph>
-          This embedded app template uses{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
-          >
-            App Bridge
-          </s-link>{" "}
-          interface examples like an{" "}
-          <s-link href="/app/additional">additional page in the app nav</s-link>
-          , as well as an{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            Admin GraphQL
-          </s-link>{" "}
-          mutation demo, to provide a starting point for app development.
-        </s-paragraph>
-      </s-section>
-      <s-section heading="Get started with products">
-        <s-paragraph>
-          Generate a product with GraphQL and get the JSON output for that
-          product. Learn more about the{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-            target="_blank"
-          >
-            productCreate
-          </s-link>{" "}
-          mutation in our API references.
-        </s-paragraph>
-        <s-stack direction="inline" gap="base">
-          <s-button
-            onClick={generateProduct}
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Generate a product
-          </s-button>
-          {fetcher.data?.product && (
-            <s-button
-              onClick={() => {
-                shopify.intents.invoke?.("edit:shopify/Product", {
-                  value: fetcher.data?.product?.id,
-                });
-              }}
-              target="_blank"
-              variant="tertiary"
-            >
-              Edit product
-            </s-button>
-          )}
-        </s-stack>
-        {fetcher.data?.product && (
-          <s-section heading="productCreate mutation">
-            <s-stack direction="block" gap="base">
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
-                </pre>
-              </s-box>
-
-              <s-heading>productVariantsBulkUpdate mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
-                </pre>
-              </s-box>
-            </s-stack>
-          </s-section>
+    <Page title="Products">
+      <BlockStack gap="500">
+        {products.length === 0 ? (
+          <Card>
+            <Text as="p">No products found in your store.</Text>
+          </Card>
+        ) : (
+          <BlockStack gap="400">
+            {products.map((product) => (
+              <Card key={product.id}>
+                <BlockStack gap="300">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text as="h2" variant="headingMd">{product.title}</Text>
+                    <Button
+                      variant="tertiary"
+                      onClick={() => {
+                        shopify.intents.invoke?.("edit:shopify/Product", {
+                          value: product.id,
+                        });
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </InlineStack>
+                  <InlineStack gap="400" blockAlign="start">
+                    {product.featuredImage && (
+                      <Thumbnail
+                        source={product.featuredImage.url}
+                        alt={product.featuredImage.altText || product.title}
+                        size="small"
+                      />
+                    )}
+                    <BlockStack gap="200">
+                      <Text as="p">
+                        <strong>Status:</strong> {product.status}
+                      </Text>
+                      {product.priceRangeV2 && (
+                        <Text as="p">
+                          <strong>Price:</strong>{" "}
+                          {product.priceRangeV2.minVariantPrice.amount}{" "}
+                          {product.priceRangeV2.minVariantPrice.currencyCode}
+                        </Text>
+                      )}
+                      <Text as="p">
+                        <strong>Inventory:</strong> {product.totalInventory || 0}
+                      </Text>
+                      <Text as="p">
+                        <strong>Handle:</strong> {product.handle}
+                      </Text>
+                    </BlockStack>
+                  </InlineStack>
+                </BlockStack>
+              </Card>
+            ))}
+          </BlockStack>
         )}
-      </s-section>
-
-      <s-section slot="aside" heading="App template specs">
-        <s-paragraph>
-          <s-text>Framework: </s-text>
-          <s-link href="https://reactrouter.com/" target="_blank">
-            React Router
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Interface: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/app-home/using-polaris-components"
-            target="_blank"
-          >
-            Polaris web components
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>API: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            GraphQL
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Database: </s-text>
-          <s-link href="https://www.prisma.io/" target="_blank">
-            Prisma
-          </s-link>
-        </s-paragraph>
-      </s-section>
-
-      <s-section slot="aside" heading="Next steps">
-        <s-unordered-list>
-          <s-list-item>
-            Build an{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/getting-started/build-app-example"
-              target="_blank"
-            >
-              example app
-            </s-link>
-          </s-list-item>
-          <s-list-item>
-            Explore Shopify&apos;s API with{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
-              target="_blank"
-            >
-              GraphiQL
-            </s-link>
-          </s-list-item>
-        </s-unordered-list>
-      </s-section>
-    </s-page>
+        {(hasNext || hasPrevious) && (
+          <div style={{ marginTop: "2rem" }}>
+            <Pagination
+              hasPrevious={hasPrevious}
+              onPrevious={handlePreviousPage}
+              hasNext={hasNext}
+              onNext={handleNextPage}
+            />
+          </div>
+        )}
+      </BlockStack>
+    </Page>
   );
 }
 
