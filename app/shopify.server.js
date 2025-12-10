@@ -19,6 +19,27 @@ const shopify = shopifyApp({
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
+  afterAuth: async ({ session }) => {
+    // Create or update shop record when app is installed or re-authenticated
+    await prisma.shop.upsert({
+      where: { shop: session.shop },
+      update: {
+        isActive: true,
+        accessToken: session.accessToken,
+        scope: session.scope || null,
+        updatedAt: new Date(),
+        uninstalledAt: null,
+      },
+      create: {
+        shop: session.shop,
+        domain: session.shop,
+        accessToken: session.accessToken,
+        scope: session.scope || null,
+        isActive: true,
+        installedAt: new Date(),
+      },
+    });
+  },
 });
 
 export default shopify;

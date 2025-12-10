@@ -12,5 +12,15 @@ export const action = async ({ request }) => {
     await db.session.deleteMany({ where: { shop } });
   }
 
+  // Update shop record to mark as uninstalled
+  await db.shop.updateMany({
+    where: { shop },
+    data: {
+      isActive: false,
+      uninstalledAt: new Date(),
+      accessToken: null,
+    },
+  });
+
   return new Response();
 };

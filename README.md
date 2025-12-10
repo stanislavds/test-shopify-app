@@ -86,21 +86,33 @@ For more information on the Shopify Dev MCP please read [the  documentation](htt
 
 ### Application Storage
 
-This template uses [Prisma](https://www.prisma.io/) to store session data, by default using an [SQLite](https://www.sqlite.org/index.html) database.
+This app uses [Prisma](https://www.prisma.io/) with [PostgreSQL](https://www.postgresql.org/) to store session data and shop information.
 The database is defined as a Prisma schema in `prisma/schema.prisma`.
 
-This use of SQLite works in production if your app runs as a single instance.
-The database that works best for you depends on the data your app needs and how it is queried.
-Here’s a short list of databases providers that provide a free tier to get started:
+**Database Setup:**
 
-| Database   | Type             | Hosters                                                                                                                                                                                                                               |
-| ---------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MySQL      | SQL              | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-mysql), [Planet Scale](https://planetscale.com/), [Amazon Aurora](https://aws.amazon.com/rds/aurora/), [Google Cloud SQL](https://cloud.google.com/sql/docs/mysql) |
-| PostgreSQL | SQL              | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-postgresql), [Amazon Aurora](https://aws.amazon.com/rds/aurora/), [Google Cloud SQL](https://cloud.google.com/sql/docs/postgres)                                   |
-| Redis      | Key-value        | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-redis), [Amazon MemoryDB](https://aws.amazon.com/memorydb/)                                                                                                        |
-| MongoDB    | NoSQL / Document | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-mongodb), [MongoDB Atlas](https://www.mongodb.com/atlas/database)                                                                                                  |
+1. Set up a PostgreSQL database (local or hosted). You can use providers like:
+   - [Digital Ocean](https://www.digitalocean.com/products/managed-databases-postgresql)
+   - [Amazon Aurora](https://aws.amazon.com/rds/aurora/)
+   - [Google Cloud SQL](https://cloud.google.com/sql/docs/postgres)
+   - [Supabase](https://supabase.com/)
+   - [Neon](https://neon.tech/)
 
-To use one of these, you can use a different [datasource provider](https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#datasource) in your `schema.prisma` file, or a different [SessionStorage adapter package](https://github.com/Shopify/shopify-api-js/blob/main/packages/shopify-api/docs/guides/session-storage.md).
+2. Set the `DATABASE_URL` environment variable with your PostgreSQL connection string:
+   ```
+   DATABASE_URL="postgresql://user:password@host:port/database?schema=public"
+   ```
+
+3. Run migrations to create the database tables:
+   ```shell
+   npx prisma migrate dev
+   ```
+
+The app manages two main data models:
+- **Session**: Stores Shopify session data for authentication
+- **Shop**: Tracks shop installation status and metadata
+
+For local development, you can use a local PostgreSQL instance or a service like [Docker PostgreSQL](https://hub.docker.com/_/postgres).
 
 ### Build
 
