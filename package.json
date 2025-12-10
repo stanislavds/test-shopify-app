@@ -17,6 +17,7 @@
     "prisma": "prisma",
     "prisma:studio": "prisma studio",
     "db:check": "node scripts/check-db.js",
+    "db:test": "node scripts/test-db-connection.js",
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
     "typecheck": "react-router typegen && tsc --noEmit"

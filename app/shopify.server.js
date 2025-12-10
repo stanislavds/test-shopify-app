@@ -21,24 +21,32 @@ const shopify = shopifyApp({
     : {}),
   afterAuth: async ({ session }) => {
     // Create or update shop record when app is installed or re-authenticated
-    await prisma.shop.upsert({
-      where: { shop: session.shop },
-      update: {
-        isActive: true,
-        accessToken: session.accessToken,
-        scope: session.scope || null,
-        updatedAt: new Date(),
-        uninstalledAt: null,
-      },
-      create: {
-        shop: session.shop,
-        domain: session.shop,
-        accessToken: session.accessToken,
-        scope: session.scope || null,
-        isActive: true,
-        installedAt: new Date(),
-      },
-    });
+    try {
+      console.log(`[afterAuth] Processing shop: ${session.shop}`);
+      await prisma.shop.upsert({
+        where: { shop: session.shop },
+        update: {
+          isActive: true,
+          accessToken: session.accessToken,
+          scope: session.scope || null,
+          updatedAt: new Date(),
+          uninstalledAt: null,
+        },
+        create: {
+          shop: session.shop,
+          domain: session.shop,
+          accessToken: session.accessToken,
+          scope: session.scope || null,
+          isActive: true,
+          installedAt: new Date(),
+        },
+      });
+      console.log(`[afterAuth] Successfully created/updated shop record for ${session.shop}`);
+    } catch (error) {
+      console.error(`[afterAuth] Error creating shop record for ${session.shop}:`, error);
+      // Don't throw - allow auth to complete even if shop record creation fails
+      // The check-db script will create it automatically
+    }
   },
 });
 
