@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: test-products-app-list
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SHOPIFY_API_KEY
+        sync: false
+      - key: SHOPIFY_API_SECRET
+        sync: false
+      - key: SHOPIFY_APP_URL
+        value: https://test-shopify-app-o70e.onrender.com
+      - key: SCOPES
+        value: write_products
+
