@@ -16,6 +16,15 @@ export const action = async ({ request }) => {
         scope: current.toString(),
       },
     });
+
+    // Also update shop record with new scopes
+    await db.shop.updateMany({
+      where: { shop },
+      data: {
+        scope: current.toString(),
+        updatedAt: new Date(),
+      },
+    });
   }
 
   return new Response();
