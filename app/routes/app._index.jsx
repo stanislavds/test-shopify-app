@@ -12,9 +12,9 @@ import {
   BlockStack,
   InlineStack,
   Modal,
-  TextField,
   Box,
 } from "@shopify/polaris";
+import { MetafieldInput } from "../components/MetafieldInput";
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
@@ -144,6 +144,7 @@ export default function Index() {
           key: m.key ?? "",
           value: m.value ?? "",
           type: m.type ?? "single_line_text_field",
+          validations: m.validations ?? [],
         }))
       );
     } else if (fetcher.data.product === null && !fetcher.data.success) {
@@ -314,19 +315,12 @@ export default function Index() {
                       key={m.id ?? `${m.namespace}.${m.key}` ?? index}
                       paddingBlockEnd="300"
                     >
-                      <TextField
+                      <MetafieldInput
                         label={m.name}
+                        type={m.type}
                         value={m.value}
                         onChange={(v) => updateMetafieldValue(index, v)}
-                        multiline={
-                          m.type === "multi_line_text_field" ? 3 : 1
-                        }
-                        helpText={
-                          m.type === "json" || String(m.type).toLowerCase().includes("json")
-                            ? 'Must be valid JSON, e.g. {"key": "value"}'
-                            : undefined
-                        }
-                        autoComplete="off"
+                        validations={m.validations}
                       />
                     </Box>
                   ))

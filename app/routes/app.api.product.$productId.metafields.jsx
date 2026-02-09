@@ -12,6 +12,11 @@ const DEFINITIONS_QUERY = `#graphql
         type {
           name
         }
+        validations {
+          name
+          type
+          value
+        }
       }
     }
   }
@@ -110,6 +115,7 @@ export const loader = async ({ request, params }) => {
         key: def.key,
         value: valueByKey.has(k) ? valueByKey.get(k) : "",
         type: typeName,
+        validations: def.validations ?? [],
       };
     });
   } else {
@@ -120,6 +126,7 @@ export const loader = async ({ request, params }) => {
       key: node.key ?? "",
       value: node.value ?? "",
       type: node.type ?? "single_line_text_field",
+      validations: [],
     }));
   }
 
@@ -165,6 +172,16 @@ export const action = async ({ request, params }) => {
     if (type === "json" || type.includes("json")) {
       try {
         JSON.parse(raw);
+        return raw;
+      } catch {
+        return null;
+      }
+    }
+
+    if (type.startsWith("list.")) {
+      try {
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return null;
         return raw;
       } catch {
         return null;
