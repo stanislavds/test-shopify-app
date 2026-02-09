@@ -156,10 +156,19 @@ export const action = async ({ request, params }) => {
 
   function normalizeValue(m) {
     const raw = String(m.value ?? "").trim();
-    const type = String(m.type || "single_line_text_field");
+    const type = String(m.type || "single_line_text_field").toLowerCase();
 
     if (raw === "") {
       return null;
+    }
+
+    if (type === "json" || type.includes("json")) {
+      try {
+        JSON.parse(raw);
+        return raw;
+      } catch {
+        return null;
+      }
     }
 
     switch (type) {
@@ -168,13 +177,6 @@ export const action = async ({ request, params }) => {
         if (["true", "1", "yes"].includes(lower)) return "true";
         if (["false", "0", "no"].includes(lower)) return "false";
         return null;
-      case "json":
-        try {
-          JSON.parse(raw);
-          return raw;
-        } catch {
-          return null;
-        }
       case "number_integer":
       case "number_decimal":
         if (/^-?[\d.]+$/.test(raw)) return raw;

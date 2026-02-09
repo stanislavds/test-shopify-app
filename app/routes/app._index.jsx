@@ -321,6 +321,11 @@ export default function Index() {
                         multiline={
                           m.type === "multi_line_text_field" ? 3 : 1
                         }
+                        helpText={
+                          m.type === "json" || String(m.type).toLowerCase().includes("json")
+                            ? 'Must be valid JSON, e.g. {"key": "value"}'
+                            : undefined
+                        }
                         autoComplete="off"
                       />
                     </Box>
