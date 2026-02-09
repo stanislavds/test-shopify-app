@@ -191,16 +191,28 @@ export const action = async ({ request, params }) => {
     if (!m?.key?.trim()) continue;
     const value = normalizeValue(m);
     if (value === null) continue;
+    const type = String(m.type || "single_line_text_field");
     input.push({
       ownerId,
       namespace: (m.namespace || "custom").trim() || "custom",
       key: (m.key || "").trim() || "key",
       value,
-      type: m.type || "single_line_text_field",
+      type: type || "single_line_text_field",
     });
   }
 
-  if (input.length === 0) {
+  const inputFiltered = input.filter((item) => {
+    const t = String(item.type || "").toLowerCase();
+    if (t !== "json" && !t.includes("json")) return true;
+    try {
+      JSON.parse(item.value);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  if (inputFiltered.length === 0) {
     return data({
       success: true,
       metafields: [],
@@ -209,7 +221,7 @@ export const action = async ({ request, params }) => {
   }
 
   const response = await admin.graphql(METAFIELDS_SET_MUTATION, {
-    variables: { metafields: input },
+    variables: { metafields: inputFiltered },
   });
   const json = await response.json();
   const payload = json.data?.metafieldsSet;
