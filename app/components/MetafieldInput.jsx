@@ -347,46 +347,6 @@ function FileReferenceInput({ label, value, onChange, disabled, showClear = true
   const currentId = value == null ? "" : String(value).trim();
   const currentFile = files.find((f) => f.id === currentId);
 
-  const content = (
-    <InlineStack gap="300" blockAlign="center">
-      {currentFile?.previewUrl ? (
-        <Thumbnail source={currentFile.previewUrl} alt={currentFile.label} size="small" />
-      ) : (
-        <Box
-          background="bg-surface-secondary"
-          padding="200"
-          borderRadius="200"
-          minWidth="40px"
-          minHeight="40px"
-        >
-          <Icon source={ImageIcon} tone="subdued" />
-        </Box>
-      )}
-      <BlockStack gap="100">
-        {currentId ? (
-          <Text as="p" variant="bodySm" tone="subdued">
-            {currentFile?.label ?? currentId}
-          </Text>
-        ) : null}
-        <InlineStack gap="200">
-          <Button onClick={openPicker} disabled={disabled}>
-            Choose file
-          </Button>
-          {showClear && currentId ? (
-            <Button
-              variant="plain"
-              tone="critical"
-              onClick={() => onChange("")}
-              disabled={disabled}
-            >
-              Clear
-            </Button>
-          ) : null}
-        </InlineStack>
-      </BlockStack>
-    </InlineStack>
-  );
-
   return (
     <BlockStack gap="200">
       {label ? (
@@ -394,63 +354,101 @@ function FileReferenceInput({ label, value, onChange, disabled, showClear = true
           {label}
         </Text>
       ) : null}
-      {content}
-      <Popover
-        active={pickerOpen}
-        autofocusTarget="first-node"
-        onClose={() => setPickerOpen(false)}
-        preferredAlignment="left"
-      >
-        <Popover.Pane fixed>
-          <Box padding="300" minWidth="320px" maxHeight="60vh" overflowY="auto">
-            {loading ? (
-              <Text as="p" tone="subdued">
-                Loading files…
-              </Text>
-            ) : files.length === 0 ? (
-              <Text as="p" tone="subdued">
-                No files in your store. Upload files in Settings → Files.
-              </Text>
-            ) : (
-              <BlockStack gap="100">
-                {files.map((file) => (
-                  <Box
-                    key={file.id}
-                    padding="200"
-                    background="bg-surface-hover"
-                    borderRadius="200"
-                    cursor="pointer"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      onChange(file.id);
-                      setPickerOpen(false);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onChange(file.id);
-                        setPickerOpen(false);
-                      }
-                    }}
-                  >
-                    <InlineStack gap="200" blockAlign="center">
-                      {file.previewUrl ? (
-                        <Thumbnail
-                          source={file.previewUrl}
-                          alt={file.label}
-                          size="small"
-                        />
-                      ) : null}
-                      <Text as="span">{file.label}</Text>
-                    </InlineStack>
-                  </Box>
-                ))}
-              </BlockStack>
-            )}
+      <InlineStack gap="300" blockAlign="center">
+        {currentFile?.previewUrl ? (
+          <Thumbnail source={currentFile.previewUrl} alt={currentFile.label} size="small" />
+        ) : (
+          <Box
+            background="bg-surface-secondary"
+            padding="200"
+            borderRadius="200"
+            minWidth="40px"
+            minHeight="40px"
+          >
+            <Icon source={ImageIcon} tone="subdued" />
           </Box>
-        </Popover.Pane>
-      </Popover>
+        )}
+        <BlockStack gap="100">
+          {currentId ? (
+            <Text as="p" variant="bodySm" tone="subdued">
+              {currentFile?.label ?? currentId}
+            </Text>
+          ) : null}
+          <InlineStack gap="200">
+            <Popover
+              active={pickerOpen}
+              autofocusTarget="first-node"
+              onClose={() => setPickerOpen(false)}
+              preferredAlignment="left"
+              activator={
+                <Button onClick={openPicker} disabled={disabled}>
+                  Choose file
+                </Button>
+              }
+            >
+              <Popover.Pane fixed>
+                <Box padding="300" minWidth="320px" maxHeight="60vh" overflowY="auto">
+                  {loading ? (
+                    <Text as="p" tone="subdued">
+                      Loading files…
+                    </Text>
+                  ) : files.length === 0 ? (
+                    <Text as="p" tone="subdued">
+                      No files in your store. Upload files in Settings → Files.
+                    </Text>
+                  ) : (
+                    <BlockStack gap="100">
+                      {files.map((file) => (
+                        <Box
+                          key={file.id}
+                          padding="200"
+                          background="bg-surface-hover"
+                          borderRadius="200"
+                          cursor="pointer"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            onChange(file.id);
+                            setPickerOpen(false);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              onChange(file.id);
+                              setPickerOpen(false);
+                            }
+                          }}
+                        >
+                          <InlineStack gap="200" blockAlign="center">
+                            {file.previewUrl ? (
+                              <Thumbnail
+                                source={file.previewUrl}
+                                alt={file.label}
+                                size="small"
+                              />
+                            ) : null}
+                            <Text as="span">{file.label}</Text>
+                          </InlineStack>
+                        </Box>
+                      ))}
+                    </BlockStack>
+                  )}
+                </Box>
+              </Popover.Pane>
+            </Popover>
+            {showClear && currentId ? (
+              <Button
+                variant="plain"
+                tone="critical"
+                onClick={() => onChange("")}
+                disabled={disabled}
+              >
+                Clear
+              </Button>
+            ) : null}
+          </InlineStack>
+        </BlockStack>
+      </InlineStack>
     </BlockStack>
   );
 }
