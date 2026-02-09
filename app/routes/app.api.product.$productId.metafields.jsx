@@ -146,7 +146,7 @@ export const action = async ({ request, params }) => {
   } catch {
     return data({ success: false, error: "Invalid JSON body" }, { status: 400 });
   }
-  const { metafields } = body;
+  const metafields = body?.metafields;
   if (!Array.isArray(metafields)) {
     return data(
       { success: false, error: "metafields must be an array" },
@@ -156,7 +156,7 @@ export const action = async ({ request, params }) => {
 
   function normalizeValue(m) {
     const raw = String(m.value ?? "").trim();
-    const type = (m.type || "single_line_text_field");
+    const type = String(m.type || "single_line_text_field");
 
     if (raw === "") {
       return null;
@@ -180,24 +180,6 @@ export const action = async ({ request, params }) => {
         if (/^-?[\d.]+$/.test(raw)) return raw;
         return null;
       default:
-        if (
-          type.includes("measurement") ||
-          type.includes("dimension") ||
-          type === "weight"
-        ) {
-          try {
-            const o = JSON.parse(raw);
-            if (typeof o?.value !== "number" || typeof o?.unit !== "string") {
-              return null;
-            }
-            return raw;
-          } catch {
-            return null;
-          }
-        }
-        if (type === "file_reference" && !raw.startsWith("shopify://")) {
-          return null;
-        }
         return raw;
     }
   }

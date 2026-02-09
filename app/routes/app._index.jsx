@@ -196,7 +196,11 @@ export default function Index() {
     if (!selectedProduct || !metafieldsUrl) return;
     fetcher.submit(
       { metafields: formMetafields },
-      { method: "POST", action: metafieldsUrl, encType: "application/json" }
+      {
+        method: "POST",
+        action: metafieldsUrl,
+        encType: "application/json",
+      }
     );
   };
 
