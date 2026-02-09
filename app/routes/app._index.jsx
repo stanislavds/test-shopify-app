@@ -128,9 +128,16 @@ export default function Index() {
 
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
-    if (fetcher.data.success === true && fetcher.data.metafields) {
+    if (fetcher.data.success === true && metafieldsUrl) {
+      fetcher.load(metafieldsUrl);
+      return;
+    }
+    if (fetcher.data.metafields && fetcher.data.success !== true) {
+      const list = Array.isArray(fetcher.data.metafields)
+        ? fetcher.data.metafields
+        : [];
       setFormMetafields(
-        fetcher.data.metafields.map((m) => ({
+        list.map((m) => ({
           id: m.id,
           name: m.name ?? `${m.namespace ?? ""}.${m.key ?? ""}`,
           namespace: m.namespace ?? "",
@@ -139,21 +146,10 @@ export default function Index() {
           type: m.type ?? "single_line_text_field",
         }))
       );
-    } else if (fetcher.data.metafields?.length) {
-      setFormMetafields(
-        fetcher.data.metafields.map((m) => ({
-          id: m.id,
-          name: m.name ?? `${m.namespace ?? ""}.${m.key ?? ""}`,
-          namespace: m.namespace ?? "",
-          key: m.key ?? "",
-          value: m.value ?? "",
-          type: m.type ?? "single_line_text_field",
-        }))
-      );
-    } else {
+    } else if (fetcher.data.product === null && !fetcher.data.success) {
       setFormMetafields([]);
     }
-  }, [fetcher.state, fetcher.data]);
+  }, [fetcher.state, fetcher.data, metafieldsUrl]);
 
   const handleNextPage = () => {
     if (pageInfo.hasNextPage && pageInfo.endCursor) {
@@ -310,12 +306,17 @@ export default function Index() {
                   </Text>
                 ) : (
                   formMetafields.map((m, index) => (
-                    <Box key={m.id ?? `${m.namespace}.${m.key}` ?? index} paddingBlockEnd="300">
+                    <Box
+                      key={m.id ?? `${m.namespace}.${m.key}` ?? index}
+                      paddingBlockEnd="300"
+                    >
                       <TextField
                         label={m.name}
                         value={m.value}
                         onChange={(v) => updateMetafieldValue(index, v)}
-                        multiline={m.type === "multi_line_text_field" ? 3 : 1}
+                        multiline={
+                          m.type === "multi_line_text_field" ? 3 : 1
+                        }
                         autoComplete="off"
                       />
                     </Box>
