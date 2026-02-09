@@ -1,12 +1,28 @@
 import { data } from "react-router";
 import { authenticate } from "../shopify.server";
 
+const DEFINITIONS_QUERY = `#graphql
+  query getProductMetafieldDefinitions($ownerType: MetafieldOwnerType!, $first: Int!) {
+    metafieldDefinitions(ownerType: $ownerType, first: $first) {
+      nodes {
+        id
+        name
+        namespace
+        key
+        type {
+          name
+        }
+      }
+    }
+  }
+`;
+
 const PRODUCT_METAFIELDS_QUERY = `#graphql
   query getProductMetafields($id: ID!) {
     product(id: $id) {
       id
       title
-      metafields(first: 100) {
+      metafields(first: 250) {
         edges {
           node {
             id
@@ -44,23 +60,74 @@ export const loader = async ({ request, params }) => {
   const { admin } = await authenticate.admin(request);
   const productId = params.productId;
   if (!productId) {
-    return data({ product: null, error: "Missing product ID" }, { status: 400 });
+    return data({ product: null, metafields: [], error: "Missing product ID" }, { status: 400 });
   }
-  const response = await admin.graphql(PRODUCT_METAFIELDS_QUERY, {
-    variables: { id: decodeURIComponent(productId) },
-  });
-  const json = await response.json();
-  const product = json.data?.product ?? null;
-  if (json.errors) {
+  const id = decodeURIComponent(productId);
+
+  const [defRes, productRes] = await Promise.all([
+    admin.graphql(DEFINITIONS_QUERY, {
+      variables: { ownerType: "PRODUCT", first: 250 },
+    }),
+    admin.graphql(PRODUCT_METAFIELDS_QUERY, { variables: { id } }),
+  ]);
+
+  const defJson = await defRes.json();
+  const productJson = await productRes.json();
+
+  if (defJson.errors || productJson.errors) {
     return data(
       {
         product: null,
-        error: json.errors[0]?.message || "Failed to load metafields",
+        metafields: [],
+        error: defJson.errors?.[0]?.message || productJson.errors?.[0]?.message || "Failed to load",
       },
       { status: 500 }
     );
   }
-  return data({ product, error: null });
+
+  const product = productJson.data?.product ?? null;
+  const definitions = defJson.data?.metafieldDefinitions?.nodes ?? [];
+  const productMetafields = product?.metafields?.edges ?? [];
+  const valueByKey = new Map();
+  const idByKey = new Map();
+  const typeByKey = new Map();
+  for (const { node } of productMetafields) {
+    const k = `${node.namespace}.${node.key}`;
+    valueByKey.set(k, node.value ?? "");
+    idByKey.set(k, node.id);
+    typeByKey.set(k, node.type ?? "single_line_text_field");
+  }
+
+  let metafields;
+  if (definitions.length > 0) {
+    metafields = definitions.map((def) => {
+      const k = `${def.namespace}.${def.key}`;
+      const typeName = def.type?.name ?? "single_line_text_field";
+      return {
+        id: idByKey.get(k) ?? null,
+        name: def.name || `${def.namespace}.${def.key}`,
+        namespace: def.namespace,
+        key: def.key,
+        value: valueByKey.has(k) ? valueByKey.get(k) : "",
+        type: typeName,
+      };
+    });
+  } else {
+    metafields = productMetafields.map(({ node }) => ({
+      id: node.id,
+      name: `${node.namespace}.${node.key}`,
+      namespace: node.namespace ?? "",
+      key: node.key ?? "",
+      value: node.value ?? "",
+      type: node.type ?? "single_line_text_field",
+    }));
+  }
+
+  return data({
+    product: product ? { id: product.id, title: product.title } : null,
+    metafields,
+    error: null,
+  });
 };
 
 export const action = async ({ request, params }) => {

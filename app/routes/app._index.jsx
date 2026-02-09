@@ -14,8 +14,6 @@ import {
   Modal,
   TextField,
   Box,
-  Divider,
-  Select,
 } from "@shopify/polaris";
 
 export const loader = async ({ request }) => {
@@ -113,28 +111,6 @@ export const loader = async ({ request }) => {
   return { products, pageInfo };
 };
 
-const METAFIELD_TYPE_OPTIONS = [
-  { label: "Single line text", value: "single_line_text_field" },
-  { label: "Multi-line text", value: "multi_line_text_field" },
-  { label: "Integer", value: "number_integer" },
-  { label: "Decimal", value: "number_decimal" },
-  { label: "Boolean", value: "boolean" },
-  { label: "Date", value: "date" },
-  { label: "Date and time", value: "date_time" },
-  { label: "JSON", value: "json" },
-];
-
-function metafieldsToForm(edges) {
-  if (!edges?.length) return [];
-  return edges.map(({ node }) => ({
-    id: node.id,
-    namespace: node.namespace ?? "",
-    key: node.key ?? "",
-    value: node.value ?? "",
-    type: node.type ?? "single_line_text_field",
-  }));
-}
-
 export default function Index() {
   const { products, pageInfo } = useLoaderData();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -156,15 +132,23 @@ export default function Index() {
       setFormMetafields(
         fetcher.data.metafields.map((m) => ({
           id: m.id,
+          name: m.name ?? `${m.namespace ?? ""}.${m.key ?? ""}`,
           namespace: m.namespace ?? "",
           key: m.key ?? "",
           value: m.value ?? "",
           type: m.type ?? "single_line_text_field",
         }))
       );
-    } else if (fetcher.data.product) {
+    } else if (fetcher.data.metafields?.length) {
       setFormMetafields(
-        metafieldsToForm(fetcher.data.product.metafields?.edges ?? [])
+        fetcher.data.metafields.map((m) => ({
+          id: m.id,
+          name: m.name ?? `${m.namespace ?? ""}.${m.key ?? ""}`,
+          namespace: m.namespace ?? "",
+          key: m.key ?? "",
+          value: m.value ?? "",
+          type: m.type ?? "single_line_text_field",
+        }))
       );
     } else {
       setFormMetafields([]);
@@ -203,29 +187,13 @@ export default function Index() {
     setFormMetafields([]);
   };
 
-  const updateMetafield = (index, field, value) => {
+  const updateMetafieldValue = (index, value) => {
     setFormMetafields((prev) => {
       const next = [...prev];
       if (!next[index]) return prev;
-      next[index] = { ...next[index], [field]: value };
+      next[index] = { ...next[index], value };
       return next;
     });
-  };
-
-  const addMetafield = () => {
-    setFormMetafields((prev) => [
-      ...prev,
-      {
-        namespace: "custom",
-        key: "",
-        value: "",
-        type: "single_line_text_field",
-      },
-    ]);
-  };
-
-  const removeMetafield = (index) => {
-    setFormMetafields((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSave = () => {
@@ -338,73 +306,21 @@ export default function Index() {
                 )}
                 {formMetafields.length === 0 && !isLoading ? (
                   <Text as="p" tone="subdued">
-                    No metafields yet. Add one below.
+                    No metafields defined for products. Add definitions in Settings → Custom data.
                   </Text>
                 ) : (
                   formMetafields.map((m, index) => (
-                    <Box key={m.id ?? index} paddingBlockEnd="400">
-                      <BlockStack gap="200">
-                        <InlineStack gap="200" blockAlign="end" wrap={false}>
-                          <Box minWidth="120px">
-                            <TextField
-                              label="Namespace"
-                              value={m.namespace}
-                              onChange={(v) =>
-                                updateMetafield(index, "namespace", v)
-                              }
-                              autoComplete="off"
-                            />
-                          </Box>
-                          <Box minWidth="140px">
-                            <TextField
-                              label="Key"
-                              value={m.key}
-                              onChange={(v) =>
-                                updateMetafield(index, "key", v)
-                              }
-                              autoComplete="off"
-                            />
-                          </Box>
-                          <Box minWidth="200px">
-                            <Select
-                              label="Type"
-                              options={METAFIELD_TYPE_OPTIONS}
-                              value={m.type}
-                              onChange={(v) =>
-                                updateMetafield(index, "type", v)
-                              }
-                            />
-                          </Box>
-                          <Button
-                            variant="plain"
-                            tone="critical"
-                            onClick={() => removeMetafield(index)}
-                            accessibilityLabel="Remove metafield"
-                          >
-                            Remove
-                          </Button>
-                        </InlineStack>
-                        <TextField
-                          label="Value"
-                          value={m.value}
-                          onChange={(v) =>
-                            updateMetafield(index, "value", v)
-                          }
-                          multiline={
-                            m.type === "multi_line_text_field" ? 3 : 1
-                          }
-                          autoComplete="off"
-                        />
-                      </BlockStack>
-                      {index < formMetafields.length - 1 && (
-                        <Box paddingBlockStart="200">
-                          <Divider />
-                        </Box>
-                      )}
+                    <Box key={m.id ?? `${m.namespace}.${m.key}` ?? index} paddingBlockEnd="300">
+                      <TextField
+                        label={m.name}
+                        value={m.value}
+                        onChange={(v) => updateMetafieldValue(index, v)}
+                        multiline={m.type === "multi_line_text_field" ? 3 : 1}
+                        autoComplete="off"
+                      />
                     </Box>
                   ))
                 )}
-                <Button onClick={addMetafield}>Add metafield</Button>
               </BlockStack>
             )}
           </Modal.Section>
