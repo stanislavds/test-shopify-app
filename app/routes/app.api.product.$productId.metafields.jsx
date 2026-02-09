@@ -153,18 +153,77 @@ export const action = async ({ request, params }) => {
       { status: 400 }
     );
   }
-  const input = metafields
-    .filter((m) => m && (m.key?.trim() || m.value != null))
-    .map((m) => ({
+
+  function normalizeValue(m) {
+    const raw = String(m.value ?? "").trim();
+    const type = (m.type || "single_line_text_field");
+
+    if (raw === "") {
+      return null;
+    }
+
+    switch (type) {
+      case "boolean":
+        const lower = raw.toLowerCase();
+        if (["true", "1", "yes"].includes(lower)) return "true";
+        if (["false", "0", "no"].includes(lower)) return "false";
+        return null;
+      case "json":
+        try {
+          JSON.parse(raw);
+          return raw;
+        } catch {
+          return null;
+        }
+      case "number_integer":
+      case "number_decimal":
+        if (/^-?[\d.]+$/.test(raw)) return raw;
+        return null;
+      default:
+        if (
+          type.includes("measurement") ||
+          type.includes("dimension") ||
+          type === "weight"
+        ) {
+          try {
+            const o = JSON.parse(raw);
+            if (typeof o?.value !== "number" || typeof o?.unit !== "string") {
+              return null;
+            }
+            return raw;
+          } catch {
+            return null;
+          }
+        }
+        if (type === "file_reference" && !raw.startsWith("shopify://")) {
+          return null;
+        }
+        return raw;
+    }
+  }
+
+  const input = [];
+  for (const m of metafields) {
+    if (!m?.key?.trim()) continue;
+    const value = normalizeValue(m);
+    if (value === null) continue;
+    input.push({
       ownerId,
       namespace: (m.namespace || "custom").trim() || "custom",
       key: (m.key || "").trim() || "key",
-      value: String(m.value ?? ""),
+      value,
       type: m.type || "single_line_text_field",
-    }));
-  if (input.length === 0) {
-    return data({ success: true, metafields: [] });
+    });
   }
+
+  if (input.length === 0) {
+    return data({
+      success: true,
+      metafields: [],
+      message: "No valid metafield values to save. Leave fields blank if you don't want to change them; filled values must match the field type (e.g. boolean: true/false, json: valid JSON).",
+    });
+  }
+
   const response = await admin.graphql(METAFIELDS_SET_MUTATION, {
     variables: { metafields: input },
   });
